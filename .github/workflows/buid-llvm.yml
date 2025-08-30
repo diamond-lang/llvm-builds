@@ -1,0 +1,54 @@
+name: Build LLVM
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "llvm-*"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch LLVM
+        run: git clone https://github.com/llvm/llvm-project.git
+      
+      - name: Set LLVM version 
+        run: cd llvm-project && git checkout llvmorg-21.1.0
+
+      - name: Configure
+        run: |
+            cmake -S llvm-project/llvm -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_PROJECTS="lld" \
+            -DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DLLVM_ENABLE_RTTI=True \
+            -DCMAKE_INSTALL_PREFIX=$PWD/install
+
+      - name: Build
+        run: cmake --build build --target install -j$(nproc || sysctl -n hw.ncpu)
+    
+      - name: Remove unnecesary files
+        run: |
+          cd install/bin
+          # remove all files except llvm-config
+          for f in *; do
+            if [ "$f" != "llvm-config" ]; then
+              rm -f "$f"
+            fi
+          done
+          cd ..
+          rm -r share && rm -r lib/cmake
+
+      - name: Package
+        run:  |
+          mv install llvm+lld-macos-aarch64
+          tar -czf llvm+lld-macos-aarch64.tar.gz llvm+lld-macos-aarch64
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: llvm+lld-macos-aarch64.tar.gz

@@ -1,2 +1,3 @@
 # llvm-builds
-Prebuilt versions of LLVM + LLD for platforms that Diamond supports
+
+Prebuilt versions of LLVM + LLD for plataforms that Diamond supports.
